@@ -3,7 +3,8 @@ using System.Net.Sockets;
 using System.Text.Json;
 using Server;
 
-var server = new ServerObject();
+var path = args.Length > 0 ? args[0] : string.Empty;
+var server = new ServerObject(path);
 await server.ListenAsync();
  
 class ServerObject
@@ -14,20 +15,20 @@ class ServerObject
     string[] _separatingStrings;
     private InvertedIndex _invertedIndex;
 
-    public ServerObject()
+    public ServerObject(string pathToFolder)
     {
         _tcpListener = new TcpListener(IPAddress.Any, 8888);
         _clients = new List<ClientObject>();
 
         _separatingStrings = new[] { ". ", ",", "<br", " ", ":", ";", "/>", "<br/>", "\"", "?" };
-        _invertedIndex = new InvertedIndex(@"../../../../files", _separatingStrings);
+        _invertedIndex = new InvertedIndex(pathToFolder == string.Empty ? @"../../../../files" : pathToFolder, _separatingStrings);
         _invertedIndex.GenerateDictionary();
     }
 
     internal string FindInvertedIndex(string text)
     {
         var result = _invertedIndex[text];
-        return result == null ? null! : JsonSerializer.Serialize(result).Replace(@"\\", @"\");
+        return result == null ? null! : JsonSerializer.Serialize(result).Replace(@"\\", @"/");
     }
 
     protected internal async Task ListenAsync()
@@ -52,8 +53,6 @@ class ServerObject
     {
         var client = _clients.FirstOrDefault(c => c.Id == id);
         if (client == null) return;
-        // var encryptMessage = _cipher.Encrypt(message, _password);
-        Console.WriteLine(message.Length);
         await client.Writer.WriteLineAsync(message);
         await client.Writer.FlushAsync();
     }
@@ -102,7 +101,6 @@ class ClientObject
                 {
                     message = await Reader.ReadLineAsync();
                     if (message == null) continue;
-                    // var decryptMessage = _server.DecryptMessage(message);
                     Console.WriteLine($"Client receive file with text {message}");
                     var result = _server.FindInvertedIndex(message);
                     await _server.BroadcastMessageAsync(result, Id);

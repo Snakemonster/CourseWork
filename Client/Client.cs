@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Text.Json;
 
 namespace TCPClient;
 
@@ -40,13 +41,13 @@ public class Client
     {
         await writer.WriteLineAsync(Name);
         await writer.FlushAsync();
-        Console.Write("Write which word you want to found from server than hit Enter or if you want exit write \"Exit\": ");
+        Console.Write("Write which word you want to found (only lowercase and only one word) from server than hit " +
+                      "Enter or if you want exit write \"Exit\"\n: ");
         while (true)
         {
             var message = Console.ReadLine();
             if(message == "Exit") break;
-            Console.WriteLine($"You have choose word \"{message}\", please wait for server");
-            // var encryptMessage = _cipher.Encrypt(message, _password);
+            Console.WriteLine($"You have choose word \"{message}\", please wait for server...");
             await writer.WriteLineAsync(message);
             await writer.FlushAsync();
         }
@@ -60,9 +61,11 @@ public class Client
             try
             {
                 var message = await reader.ReadLineAsync();
-                Console.WriteLine(message.Length);
-                // var message = _cipher.Decrypt(encryptedText, _password);
-                if (string.IsNullOrEmpty(message)) continue;
+                if (string.IsNullOrEmpty(message))
+                {
+                    Console.WriteLine("This word doesn't exist in files on server or you write wrong word");
+                    continue;
+                }
                 Print(message);
             }
             catch { break; }
@@ -71,6 +74,7 @@ public class Client
 
     void Print(string message)
     {
-        Console.WriteLine(message);
+        var res = JsonSerializer.Deserialize<Dictionary<string, int>>(message);
+        foreach (var result in res) { Console.WriteLine($"{result.Key.Replace(@"/", @"\")} :{result.Value}"); }
     }
 }
