@@ -21,7 +21,7 @@ After that you need to terminal:
 
 For Server:
 
-`cd Server ; dotnet run *path to file*
+`cd Server ; dotnet run *path to "files" folder*
 `
 
 For Client
