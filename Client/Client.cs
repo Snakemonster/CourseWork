@@ -9,7 +9,6 @@ public class Client
     public int Port { get; }
     private StreamReader? _reader;
     private StreamWriter? _writer;
-
     public Client(string name, string host = "127.0.0.1", int port = 8888)
     {
         Host = host;
@@ -31,10 +30,7 @@ public class Client
             Task.Run(() => ReceiveMessageAsync(_reader));
             await SendMessageAsync(_writer);
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
 
         _writer?.Close();
         _reader?.Close();
@@ -44,11 +40,13 @@ public class Client
     {
         await writer.WriteLineAsync(Name);
         await writer.FlushAsync();
-        Console.WriteLine("For sending texting write your message and then hit Enter");
-
+        Console.Write("Write which word you want to found from server than hit Enter or if you want exit write \"Exit\": ");
         while (true)
         {
-            string? message = Console.ReadLine();
+            var message = Console.ReadLine();
+            if(message == "Exit") break;
+            Console.WriteLine($"You have choose word \"{message}\", please wait for server");
+            // var encryptMessage = _cipher.Encrypt(message, _password);
             await writer.WriteLineAsync(message);
             await writer.FlushAsync();
         }
@@ -62,28 +60,17 @@ public class Client
             try
             {
                 var message = await reader.ReadLineAsync();
+                Console.WriteLine(message.Length);
+                // var message = _cipher.Decrypt(encryptedText, _password);
                 if (string.IsNullOrEmpty(message)) continue;
                 Print(message);
             }
-            catch
-            {
-                break;
-            }
+            catch { break; }
         }
     }
 
     void Print(string message)
     {
-        if (OperatingSystem.IsWindows())
-        {
-            var position = Console.GetCursorPosition();
-            var left = position.Left;
-            var top = position.Top;
-            Console.MoveBufferArea(0, top, left, 1, 0, top + 1);
-            Console.SetCursorPosition(0, top);
-            Console.WriteLine(message);
-            Console.SetCursorPosition(left, top + 1);
-        }
-        else Console.WriteLine(message);
+        Console.WriteLine(message);
     }
 }
