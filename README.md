@@ -3,6 +3,7 @@
 Project made using .NET CORE 7
 ### For Visual Studio/Rider
 Unzip files.rar in folder with projects like on image below:
+
 ![img.png](files.png)
 
 Then open solution in your IDE. For running project you need to 
