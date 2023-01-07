@@ -1,11 +1,15 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using Server;
+using XOR_Cipher;
+
 
 var path = args.Length > 0 ? args[0] : string.Empty;
 var server = new ServerObject(path);
-await server.ListenAsync();
+var listenThread = new Thread(server.Listen);
+listenThread.Start();
  
 class ServerObject
 {
@@ -15,6 +19,9 @@ class ServerObject
     string[] _separatingStrings;
     private InvertedIndex _invertedIndex;
 
+    private XORCipher _cipher;
+    private string _password;
+    
     public ServerObject(string pathToFolder)
     {
         _tcpListener = new TcpListener(IPAddress.Any, 8888);
@@ -23,15 +30,19 @@ class ServerObject
         _separatingStrings = new[] { ". ", ",", "<br", " ", ":", ";", "/>", "<br/>", "\"", "?" };
         _invertedIndex = new InvertedIndex(pathToFolder == string.Empty ? @"../../../../files" : pathToFolder, _separatingStrings);
         _invertedIndex.GenerateDictionary();
+
+        _cipher = new XORCipher();
+        _password = XORCipher.GetRandomKey(4643, 20);
     }
 
+    internal string DecryptMessage(string message) =>_cipher.Decrypt(message, _password);
     internal string FindInvertedIndex(string text)
     {
         var result = _invertedIndex[text];
-        return result == null ? null! : JsonSerializer.Serialize(result).Replace(@"\\", @"/");
+        return result == null ? "empty" : JsonSerializer.Serialize(result).Replace(@"\\", @"/");
     }
 
-    protected internal async Task ListenAsync()
+    protected internal void Listen()
     {
         try
         {
@@ -39,22 +50,24 @@ class ServerObject
             Console.WriteLine("Server is started. Waiting for connections...");
             while (true)
             {
-                var tcpClient = await _tcpListener.AcceptTcpClientAsync();
+                var tcpClient = _tcpListener.AcceptTcpClient();
                 var clientObject = new ClientObject(tcpClient, this);
                 _clients.Add(clientObject);
-                await Task.Run(clientObject.ProcessAsync);
+                var clientThread = new Thread(clientObject.Process);
+                clientThread.Start();
             }
         }
         catch (Exception ex) { Console.WriteLine(ex.Message); }
         finally { Disconnect(); }
     }
 
-    protected internal async Task BroadcastMessageAsync(string message, string id)
+    protected internal void BroadcastMessage(string message, string id)
     {
         var client = _clients.FirstOrDefault(c => c.Id == id);
         if (client == null) return;
-        await client.Writer.WriteLineAsync(message);
-        await client.Writer.FlushAsync();
+        var encryptedMessage = _cipher.Encrypt(message, _password);
+        var data = Encoding.Unicode.GetBytes(encryptedMessage);
+        client.Stream.Write(data, 0, data.Length);
     }
     
     protected internal void RemoveConnection(string id)
@@ -68,59 +81,75 @@ class ServerObject
     {
         foreach (var client in _clients) { client.Close(); }
         _tcpListener.Stop();
+        Environment.Exit(0);
     }
 }
 class ClientObject
 {
-    protected internal string Id { get; } = Guid.NewGuid().ToString();
-    protected internal StreamWriter Writer { get;}
-    protected internal StreamReader Reader { get;}
+    protected internal string Id { get; }
+    protected internal NetworkStream Stream { get; private set; }
  
     private TcpClient _client;
     private ServerObject _server;
  
     public ClientObject(TcpClient tcpClient, ServerObject serverObject)
     {
+        Id = Guid.NewGuid().ToString();
         _client = tcpClient;
         _server = serverObject;
-        var stream = _client.GetStream();
-        Reader = new StreamReader(stream);
-        Writer = new StreamWriter(stream);
     }
- 
-    public async Task ProcessAsync()
+
+    public void Process()
     {
         try
         {
-            var userName = await Reader.ReadLineAsync();
-            var message = $"{userName} enter to chat";
-            Console.WriteLine(message);
+            Stream = _client.GetStream();
+            var userName = GetMessage();
+            Console.WriteLine($"{userName} enter to chat");
+
             while (true)
             {
                 try
                 {
-                    message = await Reader.ReadLineAsync();
+                    var message = GetMessage();
                     if (message == null) continue;
                     Console.WriteLine($"Client receive file with text {message}");
                     var result = _server.FindInvertedIndex(message);
-                    await _server.BroadcastMessageAsync(result, Id);
+                    _server.BroadcastMessage(result, Id);
                 }
                 catch
                 {
-                    message = $"{userName} leave's chat";
-                    Console.WriteLine(message);
+                    Console.WriteLine($"{userName} leave's chat");
                     break;
                 }
             }
         }
-        catch (Exception e) { Console.WriteLine(e.Message); }
-        finally { _server.RemoveConnection(Id); }
+        catch (Exception e) { Console.WriteLine(e); }
+        finally
+        {
+            _server.RemoveConnection(Id);
+            Close();
+        }
+    }
+
+    private string GetMessage()
+    {
+        var data = new byte[64];
+        var builder = new StringBuilder();
+        var bytes = 0;
+        do
+        {
+            bytes = Stream.Read(data, 0, data.Length);
+            builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+        } while (Stream.DataAvailable);
+        var message = builder.ToString();
+        var decryptedMessage = _server.DecryptMessage(message); 
+        return decryptedMessage;
     }
 
     protected internal void Close()
     {
-        Writer.Close();
-        Reader.Close();
+        Stream.Close();
         _client.Close();
     }
 }

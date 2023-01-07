@@ -1,75 +1,101 @@
 ﻿using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
+using XOR_Cipher;
 
 namespace TCPClient;
 
 public class Client
 {
-    public string Host { get; }
-    public string Name { get; }
-    public int Port { get; }
-    private StreamReader? _reader;
-    private StreamWriter? _writer;
+    private readonly int _port;
+    private readonly string _name;
+    private readonly string _server;
+    private readonly string _password;
+
+    private TcpClient _client;
+    private NetworkStream _stream;
+    private XORCipher _cipher;
+    
     public Client(string name, string host = "127.0.0.1", int port = 8888)
     {
-        Host = host;
-        Name = name;
-        Port = port;
-        _reader = null;
-        _writer = null;
+        _server = host;
+        _name = name;
+        _port = port;
+        _stream = null;
+        _password = XORCipher.GetRandomKey(4643, 20);
+        _cipher = new XORCipher();
+        _client = new TcpClient();
     }
 
-    public async void StartClient()
+    public void StartClient()
     {
-        using var client = new TcpClient();
         try
         {
-            client.Connect(Host, Port);
-            _reader = new StreamReader(client.GetStream());
-            _writer = new StreamWriter(client.GetStream());
-            if (_writer is null || _reader is null) return;
-            Task.Run(() => ReceiveMessageAsync(_reader));
-            await SendMessageAsync(_writer);
-        }
-        catch (Exception ex) { Console.WriteLine(ex.Message); }
+            _client.Connect(_server, _port);
+            _stream = _client.GetStream();
 
-        _writer?.Close();
-        _reader?.Close();
+            var receiveThread = new Thread(ReceiveMessage);
+            receiveThread.Start();
+            SendMessage();
+        }
+        catch (Exception ex) { Console.WriteLine(ex); }
+        finally { Disconnect(); }
     }
 
-    async Task SendMessageAsync(StreamWriter writer)
+    private void SendMessage()
     {
-        await writer.WriteLineAsync(Name);
-        await writer.FlushAsync();
-        Console.Write("Write which word you want to found (only lowercase and only one word) from server than hit " +
-                      "Enter or if you want exit write \"Exit\"\n: ");
+        var name = _cipher.Encrypt(_name, _password);
+        var data = Encoding.Unicode.GetBytes(name);
+        _stream.Write(data, 0, data.Length);
+        Console.Write("Write which word you want to found (only lowercase and only one word) from server than hit Enter or if you want exit write \"Exit\"\n: ");
         while (true)
         {
             var message = Console.ReadLine();
-            if(message == "Exit") break;
+            if (message == "Exit") Disconnect();
             Console.WriteLine($"You have choose word \"{message}\", please wait for server...");
-            await writer.WriteLineAsync(message);
-            await writer.FlushAsync();
+            var encryptedMessage = _cipher.Encrypt(message, _password);
+            data = Encoding.Unicode.GetBytes(encryptedMessage);
+            _stream.Write(data, 0, data.Length);
         }
     }
-    
-    
-    async Task ReceiveMessageAsync(StreamReader reader)
+
+
+    private void ReceiveMessage()
     {
         while (true)
         {
             try
             {
-                var message = await reader.ReadLineAsync();
-                if (string.IsNullOrEmpty(message))
+                var data = new byte[64];
+                var builder = new StringBuilder();
+                var bytes = 0;
+                do
+                {
+                    bytes = _stream.Read(data, 0, data.Length);
+                    builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+                } while (_stream.DataAvailable);
+
+                var decryptedMessage = _cipher.Decrypt(builder.ToString(), _password);
+                if (decryptedMessage == "empty")
                 {
                     Console.WriteLine("This word doesn't exist in files on server or you write wrong word");
                     continue;
                 }
-                Print(message);
+                Print(decryptedMessage);
             }
-            catch { break; }
+            catch
+            {
+                Console.WriteLine("Connection is lose!");
+                Disconnect();
+            }
         }
+    }
+    
+    private void Disconnect()
+    {
+        _stream.Close();
+        _client.Close();
+        Environment.Exit(0);
     }
 
     void Print(string message)
