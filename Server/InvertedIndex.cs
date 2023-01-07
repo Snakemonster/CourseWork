@@ -23,11 +23,11 @@ public class InvertedIndex
     /// <summary>
     /// Generates dictionary from files
     /// </summary>
-    public void GenerateDictionary()
+    /// <param name="directories">List of directories where stores files</param>
+    /// <param name="threadCount">(should be > 0) How many threads will generate dictionary</param>
+    public void GenerateDictionary(List<string> directories, int threadCount = 8)
     {
-        var directories = new List<string> { @"\test\neg", @"\test\pos", @"\train\neg", @"\train\pos", @"\train\unsup" };
         var allFiles = directories.Select(file => Directory.EnumerateFiles(_pathToFolder + file)).SelectMany(x => x).ToList();
-        const int threadCount = 8;
         var threads = new Thread[threadCount];
         for (var i = 0; i < threadCount; i++)
         {
@@ -49,17 +49,17 @@ public class InvertedIndex
     /// </param>
     /// <param name="Aind">first element in list</param>
     /// <param name="Bind">last element in list</param>
-    public void BuildDictionary(List<string> allFiles, int Aind, int Bind)
+    private void BuildDictionary(List<string> allFiles, int Aind, int Bind)
     {
         for (var i = Aind; i < Bind; i++)
         {
             var file = allFiles[i];
             var content = File.ReadAllText(file).ToLower().Split(_separatingStrings, StringSplitOptions.RemoveEmptyEntries).ToList();
-            addToIndex(content, file.Replace(_pathToFolder, ""));
+            AddToIndex(content, file.Replace(_pathToFolder, ""));
         }
     }
 
-    private void addToIndex(List<string> words, string document)
+    private void AddToIndex(List<string> words, string document)
     {
         foreach (var word in words)
         {
@@ -72,11 +72,11 @@ public class InvertedIndex
             else _invertedIndex[word][document]++;
         }
     }
-    
+
     /// <param name="text">text which needed to be found</param>
     /// <returns>
     ///     <see cref="ConcurrentDictionary{TKey,TValue}"/>
     ///     where key is file, value is count of word in file.
     /// </returns>
-    public ConcurrentDictionary<string, int> this[string text] => (_invertedIndex.ContainsKey(text) ? _invertedIndex[text] : null)!;
+    public ConcurrentDictionary<string, int> this[string text] => (_invertedIndex.TryGetValue(text, out var value) ? value : null)!;
 }

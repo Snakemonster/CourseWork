@@ -24,12 +24,17 @@ class ServerObject
     
     public ServerObject(string pathToFolder)
     {
+        var path = pathToFolder == string.Empty ? @"..\..\..\..\files" : pathToFolder;
         _tcpListener = new TcpListener(IPAddress.Any, 8888);
         _clients = new List<ClientObject>();
 
-        _separatingStrings = new[] { ". ", ",", "<br", " ", ":", ";", "/>", "<br/>", "\"", "?" };
-        _invertedIndex = new InvertedIndex(pathToFolder == string.Empty ? @"../../../../files" : pathToFolder, _separatingStrings);
-        _invertedIndex.GenerateDictionary();
+        _separatingStrings = new[] { ".", ",", "<br", " ", ":", ";", "/>", "<br/>", "\"", "?", "(", ")" , "{", "}", "@", "<", ">", "!"};
+        _invertedIndex = new InvertedIndex(path, _separatingStrings);
+        var directories = (from dir1 in Directory.EnumerateDirectories(path)
+            from dir2 in Directory.EnumerateDirectories(dir1)
+            select dir2.Replace(path, "")).ToList();
+        
+        _invertedIndex.GenerateDictionary(directories);
 
         _cipher = new XORCipher();
         _password = XORCipher.GetRandomKey(4643, 20);
