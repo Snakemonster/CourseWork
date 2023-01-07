@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClientExmp", "ClientExmp\Cl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XOR_Cipher", "XOR_Cipher\XOR_Cipher.csproj", "{351B07CF-B6D1-4C54-BF21-DBD55BE2AC4C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InvertedIndexTest", "InvertedIndexTest\InvertedIndexTest.csproj", "{F46A4ACA-4D12-49AB-888C-AA82B37FD5E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{351B07CF-B6D1-4C54-BF21-DBD55BE2AC4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{351B07CF-B6D1-4C54-BF21-DBD55BE2AC4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{351B07CF-B6D1-4C54-BF21-DBD55BE2AC4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F46A4ACA-4D12-49AB-888C-AA82B37FD5E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F46A4ACA-4D12-49AB-888C-AA82B37FD5E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F46A4ACA-4D12-49AB-888C-AA82B37FD5E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F46A4ACA-4D12-49AB-888C-AA82B37FD5E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
